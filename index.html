@@ -130,10 +130,12 @@
         padding: 20px;
         margin: 0 auto;
     }
-    .word-container {
+    .word-wrapper {
+        position: relative;
         flex: 1;
-        max-height: 250px;
+        height: 250px;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         margin-bottom: 30px;
@@ -145,6 +147,17 @@
         color: #ffffff;
         text-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
         text-align: center;
+    }
+    #correct-answer-display {
+        position: absolute;
+        bottom: 10px;
+        font-size: 24px;
+        color: #facc15;
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.3s;
+        text-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
+        pointer-events: none;
     }
     .buttons-horizontal {
         display: flex;
@@ -198,6 +211,7 @@
         .stats-container { width: 100%; justify-content: space-between; }
         .stat-box { font-size: 14px; padding: 6px 10px; }
         button.category-btn { font-size: 16px; padding: 10px; }
+        #correct-answer-display { font-size: 18px; bottom: 0; }
     }
 </style>
 </head>
@@ -228,8 +242,9 @@
     </header>
 
     <main>
-        <div class="word-container">
+        <div class="word-wrapper">
             <div id="current-word">מתחילים...</div>
+            <div id="correct-answer-display"></div>
         </div>
         <div class="buttons-horizontal">
             <button class="category-btn" data-type="base_suffix">בסיס + צורן סופי</button>
@@ -242,6 +257,14 @@
 </section>
 
 <script>
+    const typeNamesHebrew = {
+        "base_suffix": "בסיס + צורן סופי",
+        "foreign": "שאילה מלעוזית",
+        "root_pattern": "שורש + משקל",
+        "blend": "הלחם בסיסים",
+        "acronym": "ראשי תיבות (נוטריקון)"
+    };
+
     const words = [
         { word: "עיתונאי", type: "base_suffix" }, { word: "ספרן", type: "base_suffix" }, { word: "חללית", type: "base_suffix" }, { word: "מכונית", type: "base_suffix" }, { word: "צנצנת", type: "base_suffix" }, { word: "בנקאי", type: "base_suffix" }, { word: "משאית", type: "base_suffix" }, { word: "שבועון", type: "base_suffix" }, { word: "יומון", type: "base_suffix" }, { word: "ירחון", type: "base_suffix" }, { word: "תקליטור", type: "base_suffix" }, { word: "מחשבון", type: "base_suffix" }, { word: "שקרן", type: "base_suffix" }, { word: "עצלן", type: "base_suffix" }, { word: "ספריה", type: "base_suffix" }, { word: "פעלולן", type: "base_suffix" }, { word: "כדורגלן", type: "base_suffix" }, { word: "חלילן", type: "base_suffix" }, { word: "תוכניתן", type: "base_suffix" }, { word: "מילון", type: "base_suffix" }, { word: "רפתן", type: "base_suffix" }, { word: "טבעוני", type: "base_suffix" }, { word: "צמחוני", type: "base_suffix" },
         { word: "טלוויזיה", type: "foreign" }, { word: "רדיו", type: "foreign" }, { word: "אינטרנט", type: "foreign" }, { word: "פודקאסט", type: "foreign" }, { word: "טלפון", type: "foreign" }, { word: "סמארטפון", type: "foreign" }, { word: "פלסטיק", type: "foreign" }, { word: "אקדמיה", type: "foreign" }, { word: "היסטוריה", type: "foreign" }, { word: "גיאוגרפיה", type: "foreign" }, { word: "מתמטיקה", type: "foreign" }, { word: "פיזיקה", type: "foreign" }, { word: "קונצרט", type: "foreign" }, { word: "תיאטרון", type: "foreign" }, { word: "סינמטק", type: "foreign" }, { word: "פרויקט", type: "foreign" }, { word: "מודל", type: "foreign" }, { word: "קורס", type: "foreign" }, { word: "סטודנט", type: "foreign" }, { word: "אוניברסיטה", type: "foreign" }, { word: "מוזיקה", type: "foreign" }, { word: "פסטיבל", type: "foreign" },
@@ -257,10 +280,12 @@
     let gameTimer = null;
     let timeLeft = 60;
     const GAME_DURATION = 60;
+    let audioCtx = null;
 
     const homeScreen = document.getElementById('home-screen');
     const gameScreen = document.getElementById('game-screen');
     const wordElement = document.getElementById('current-word');
+    const correctAnswerDisplay = document.getElementById('correct-answer-display');
     const scoreElement = document.getElementById('score');
     const streakElement = document.getElementById('streak');
     const timeLeftElement = document.getElementById('time-left');
@@ -268,7 +293,42 @@
     const lastScoreDisplay = document.getElementById('last-score-display');
     const buttons = document.querySelectorAll('.category-btn');
 
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playSound(type) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'correct') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        } else if (type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+    }
+
     function startGame() {
+        initAudio();
         score = 0;
         streak = 0;
         timeLeft = GAME_DURATION;
@@ -278,6 +338,7 @@
         timeLeftElement.textContent = timeLeft;
         timerBar.style.width = '100%';
         lastScoreDisplay.textContent = '';
+        correctAnswerDisplay.style.opacity = '0';
 
         homeScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
@@ -295,6 +356,7 @@
 
     function startTimer() {
         gameTimer = setInterval(() => {
+            if (isAnimating) return;
             timeLeft--;
             timeLeftElement.textContent = timeLeft;
             const percentage = (timeLeft / GAME_DURATION) * 100;
@@ -314,6 +376,7 @@
         currentWordObj = getRandomWord();
         wordElement.textContent = currentWordObj.word;
         wordElement.className = '';
+        correctAnswerDisplay.style.opacity = '0';
         isAnimating = false;
     }
 
@@ -356,18 +419,26 @@
             score += pointsGained;
             wordElement.classList.add('correct-anim');
             createParticle(`+${pointsGained}`, 'var(--success-color)', buttonElement);
+            playSound('correct');
+            updateScoreDisplay();
             setTimeout(setNewWord, 400);
         } else {
             streak = 0;
             score = Math.max(0, score - 10);
             wordElement.classList.add('wrong-anim');
             createParticle('טעות!', 'var(--danger-color)', buttonElement);
+            playSound('wrong');
+            
+            correctAnswerDisplay.textContent = `התשובה הנכונה: ${typeNamesHebrew[currentWordObj.type]}`;
+            correctAnswerDisplay.style.opacity = '1';
+            
+            updateScoreDisplay();
+            
             setTimeout(() => {
                 wordElement.classList.remove('wrong-anim');
                 setNewWord();
-            }, 400);
+            }, 1500);
         }
-        updateScoreDisplay();
     }
 
     buttons.forEach(button => {
