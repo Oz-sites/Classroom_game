@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>זירת הצורות</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Rubik', sans-serif;
+    }
+    body {
+        background-color: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    header {
+        width: 100%;
+        padding: 20px;
+        background: #1e293b;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    h1 {
+        font-size: 24px;
+        color: #38bdf8;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+    .stats {
+        display: flex;
+        gap: 20px;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    .score-box {
+        background: #334155;
+        padding: 10px 20px;
+        border-radius: 12px;
+        border: 2px solid #475569;
+    }
+    #score { color: #4ade80; }
+    #streak { color: #facc15; }
+    main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 800px;
+        padding: 20px;
+    }
+    .word-container {
+        height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 40px;
+    }
+    #current-word {
+        font-size: 80px;
+        font-weight: 900;
+        color: #ffffff;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        transition: transform 0.2s;
+    }
+    .buttons-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        width: 100%;
+    }
+    .buttons-grid button:last-child {
+        grid-column: 1 / -1;
+    }
+    button.category-btn {
+        background: #1e293b;
+        color: #f8fafc;
+        border: 3px solid transparent;
+        border-radius: 16px;
+        padding: 20px;
+        font-size: 22px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 8px 0 #0f172a;
+    }
+    button.category-btn:active {
+        transform: translateY(8px);
+        box-shadow: 0 0 0 #0f172a;
+    }
+    button[data-type="base_suffix"] { border-color: #ef4444; }
+    button[data-type="foreign"] { border-color: #3b82f6; }
+    button[data-type="root_pattern"] { border-color: #10b981; }
+    button[data-type="blend"] { border-color: #f59e0b; }
+    button[data-type="acronym"] { border-color: #8b5cf6; }
+    button[data-type="base_suffix"]:hover { background: rgba(239, 68, 68, 0.2); }
+    button[data-type="foreign"]:hover { background: rgba(59, 130, 246, 0.2); }
+    button[data-type="root_pattern"]:hover { background: rgba(16, 185, 129, 0.2); }
+    button[data-type="blend"]:hover { background: rgba(245, 158, 11, 0.2); }
+    button[data-type="acronym"]:hover { background: rgba(139, 92, 246, 0.2); }
+    .correct-anim {
+        animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        color: #4ade80 !important;
+        text-shadow: 0 0 30px rgba(74, 222, 128, 0.8) !important;
+    }
+    .wrong-anim {
+        animation: shake 0.4s ease-in-out;
+        color: #f87171 !important;
+        text-shadow: 0 0 30px rgba(248, 113, 113, 0.8) !important;
+    }
+    @keyframes pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1); }
+    }
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-15px); }
+        40%, 80% { transform: translateX(15px); }
+    }
+    .feedback-particles {
+        position: absolute;
+        pointer-events: none;
+        font-size: 40px;
+        opacity: 0;
+        transition: all 0.5s ease-out;
+    }
+    @media (max-width: 600px) {
+        .buttons-grid { grid-template-columns: 1fr; }
+        button.category-btn:last-child { grid-column: auto; }
+        #current-word { font-size: 50px; }
+        header { flex-direction: column; gap: 10px; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>זירת הצורות</h1>
+    <div class="stats">
+        <div class="score-box">רצף: <span id="streak">0</span></div>
+        <div class="score-box">ניקוד: <span id="score">0</span></div>
+    </div>
+</header>
+
+<main>
+    <div class="word-container">
+        <div id="current-word">מפעיל...</div>
+    </div>
+    <div class="buttons-grid">
+        <button class="category-btn" data-type="base_suffix">בסיס + צורן סופי</button>
+        <button class="category-btn" data-type="foreign">שאילה מלעוזית</button>
+        <button class="category-btn" data-type="root_pattern">שורש + משקל</button>
+        <button class="category-btn" data-type="blend">הלחם בסיסים</button>
+        <button class="category-btn" data-type="acronym">ראשי תיבות (נוטריקון)</button>
+    </div>
+</main>
+
+<script>
+    const words = [
+        { word: "עיתונאי", type: "base_suffix" },
+        { word: "ספרן", type: "base_suffix" },
+        { word: "חללית", type: "base_suffix" },
+        { word: "מכונית", type: "base_suffix" },
+        { word: "צנצנת", type: "base_suffix" },
+        { word: "בנקאי", type: "base_suffix" },
+        { word: "משאית", type: "base_suffix" },
+        { word: "שבועון", type: "base_suffix" },
+        { word: "יומון", type: "base_suffix" },
+        { word: "ירחון", type: "base_suffix" },
+        { word: "תקליטור", type: "base_suffix" },
+        { word: "מחשבון", type: "base_suffix" },
+        { word: "שקרן", type: "base_suffix" },
+        { word: "עצלן", type: "base_suffix" },
+        { word: "ספריה", type: "base_suffix" },
+        { word: "פעלולן", type: "base_suffix" },
+        { word: "כדורגלן", type: "base_suffix" },
+        { word: "חלילן", type: "base_suffix" },
+        { word: "תוכניתן", type: "base_suffix" },
+        { word: "מילון", type: "base_suffix" },
+        { word: "רפתן", type: "base_suffix" },
+        { word: "טבעוני", type: "base_suffix" },
+        { word: "צמחוני", type: "base_suffix" },
+        
+        { word: "טלוויזיה", type: "foreign" },
+        { word: "רדיו", type: "foreign" },
+        { word: "אינטרנט", type: "foreign" },
+        { word: "פודקאסט", type: "foreign" },
+        { word: "טלפון", type: "foreign" },
+        { word: "סמארטפון", type: "foreign" },
+        { word: "פלסטיק", type: "foreign" },
+        { word: "אקדמיה", type: "foreign" },
+        { word: "היסטוריה", type: "foreign" },
+        { word: "גיאוגרפיה", type: "foreign" },
+        { word: "מתמטיקה", type: "foreign" },
+        { word: "פיזיקה", type: "foreign" },
+        { word: "קונצרט", type: "foreign" },
+        { word: "תיאטרון", type: "foreign" },
+        { word: "סינמטק", type: "foreign" },
+        { word: "פרויקט", type: "foreign" },
+        { word: "מודל", type: "foreign" },
+        { word: "קורס", type: "foreign" },
+        { word: "סטודנט", type: "foreign" },
+        { word: "אוניברסיטה", type: "foreign" },
+        { word: "מוזיקה", type: "foreign" },
+        { word: "פסטיבל", type: "foreign" },
+
+        { word: "תזמורת", type: "root_pattern" },
+        { word: "משקפיים", type: "root_pattern" },
+        { word: "שחקן", type: "root_pattern" },
+        { word: "רקדן", type: "root_pattern" },
+        { word: "זמר", type: "root_pattern" },
+        { word: "מקלדת", type: "root_pattern" },
+        { word: "מצלמה", type: "root_pattern" },
+        { word: "מסעדה", type: "root_pattern" },
+        { word: "מרפאה", type: "root_pattern" },
+        { word: "תסרוקת", type: "root_pattern" },
+        { word: "תלבושת", type: "root_pattern" },
+        { word: "מברשת", type: "root_pattern" },
+        { word: "מסרק", type: "root_pattern" },
+        { word: "משולש", type: "root_pattern" },
+        { word: "מרובע", type: "root_pattern" },
+        { word: "מחברת", type: "root_pattern" },
+        { word: "קלמר", type: "root_pattern" },
+        { word: "תלמיד", type: "root_pattern" },
+        { word: "מורה", type: "root_pattern" },
+        { word: "מנהל", type: "root_pattern" },
+        { word: "תרופה", type: "root_pattern" },
+        { word: "מעלית", type: "root_pattern" },
+
+        { word: "רמזור", type: "blend" },
+        { word: "מגדלור", type: "blend" },
+        { word: "קרנף", type: "blend" },
+        { word: "מחזמר", type: "blend" },
+        { word: "מדחן", type: "blend" },
+        { word: "אופנוע", type: "blend" },
+        { word: "קולנוע", type: "blend" },
+        { word: "פלדלת", type: "blend" },
+        { word: "חיידק", type: "blend" },
+        { word: "רכבל", type: "blend" },
+        { word: "כדורגל", type: "blend" },
+        { word: "כדורסל", type: "blend" },
+        { word: "פסקזמן", type: "blend" },
+        { word: "חמצוואר", type: "blend" },
+        { word: "שלדג", type: "blend" },
+        { word: "קרמבו", type: "blend" },
+        { word: "ערפיח", type: "blend" },
+        { word: "דחפור", type: "blend" },
+        { word: "שמרטף", type: "blend" },
+        { word: "חיברק", type: "blend" },
+        { word: "רמנוע", type: "blend" },
+
+        { word: "צה\"ל", type: "acronym" },
+        { word: "דו\"ח", type: "acronym" },
+        { word: "תפוז", type: "acronym" },
+        { word: "מנכ\"ל", type: "acronym" },
+        { word: "סמנכ\"ל", type: "acronym" },
+        { word: "או\"ם", type: "acronym" },
+        { word: "ארה\"ב", type: "acronym" },
+        { word: "תנ\"ך", type: "acronym" },
+        { word: "בג\"ץ", type: "acronym" },
+        { word: "שו\"ת", type: "acronym" },
+        { word: "ד\"ש", type: "acronym" },
+        { word: "ח\"כ", type: "acronym" },
+        { word: "ת\"א", type: "acronym" },
+        { word: "אחה\"צ", type: "acronym" },
+        { word: "מוצ\"ש", type: "acronym" },
+        { word: "עו\"ד", type: "acronym" },
+        { word: "רו\"ח", type: "acronym" },
+        { word: "מד\"א", type: "acronym" },
+        { word: "שב\"כ", type: "acronym" },
+        { word: "חב\"ד", type: "acronym" },
+        { word: "מע\"מ", type: "acronym" },
+        { word: "סקו\"ם", type: "acronym" }
+    ];
+
+    let score = 0;
+    let streak = 0;
+    let currentWordObj = null;
+    let isAnimating = false;
+
+    const wordElement = document.getElementById('current-word');
+    const scoreElement = document.getElementById('score');
+    const streakElement = document.getElementById('streak');
+    const buttons = document.querySelectorAll('.category-btn');
+
+    function getRandomWord() {
+        const randomIndex = Math.floor(Math.random() * words.length);
+        return words[randomIndex];
+    }
+
+    function setNewWord() {
+        currentWordObj = getRandomWord();
+        wordElement.textContent = currentWordObj.word;
+        wordElement.className = '';
+        isAnimating = false;
+    }
+
+    function createParticle(text, color, x, y) {
+        const particle = document.createElement('div');
+        particle.textContent = text;
+        particle.className = 'feedback-particles';
+        particle.style.color = color;
+        particle.style.left = x + 'px';
+        particle.style.top = y + 'px';
+        document.body.appendChild(particle);
+
+        requestAnimationFrame(() => {
+            particle.style.transform = `translateY(-50px) scale(1.5)`;
+            particle.style.opacity = '1';
+        });
+
+        setTimeout(() => {
+            particle.style.opacity = '0';
+            setTimeout(() => particle.remove(), 500);
+        }, 500);
+    }
+
+    function handleAnswer(selectedType, buttonElement) {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        const rect = wordElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const topY = rect.top;
+
+        if (selectedType === currentWordObj.type) {
+            streak++;
+            const pointsGained = 10 * streak;
+            score += pointsGained;
+            
+            scoreElement.textContent = score;
+            streakElement.textContent = streak;
+            
+            wordElement.classList.add('correct-anim');
+            createParticle(`+${pointsGained}`, '#4ade80', centerX, topY);
+            
+            setTimeout(setNewWord, 500);
+        } else {
+            streak = 0;
+            score = Math.max(0, score - 5);
+            
+            scoreElement.textContent = score;
+            streakElement.textContent = streak;
+            
+            wordElement.classList.add('wrong-anim');
+            createParticle('טעות!', '#f87171', centerX, topY);
+            
+            setTimeout(() => {
+                wordElement.classList.remove('wrong-anim');
+                isAnimating = false;
+            }, 500);
+        }
+    }
+
+    buttons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            handleAnswer(e.target.dataset.type, e.target);
+        });
+    });
+
+    setNewWord();
+</script>
+</body>
+  </html>
